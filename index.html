@@ -3,602 +3,466 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>傅立葉轉換動畫產生器 (純HTML版)</title>
-    <!-- 載入 Tailwind CSS -->
+    <title>傅立葉變換動畫產生器</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 載入 Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* 自定義捲軸樣式 */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            overflow: hidden; /* 防止滾動，全螢幕應用 */
         }
-        ::-webkit-scrollbar-track {
-            background: #111827; 
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
         }
-        ::-webkit-scrollbar-thumb {
-            background: #374151; 
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #4B5563; 
-        }
-        
-        input[type="range"] {
+        input[type=range] {
             -webkit-appearance: none;
             background: transparent;
         }
-        input[type="range"]::-webkit-slider-thumb {
+        input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
             height: 16px;
             width: 16px;
             border-radius: 50%;
-            background: #3B82F6;
+            background: #38bdf8;
             margin-top: -6px;
             cursor: pointer;
         }
-        input[type="range"]::-webkit-slider-runnable-track {
+        input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
             height: 4px;
-            background: #374151;
+            cursor: pointer;
+            background: #334155;
             border-radius: 2px;
+        }
+        .equation-input:focus {
+            outline: none;
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }
+        /* 自定義滾動條 */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
         }
     </style>
 </head>
-<body class="bg-gray-950 text-white h-screen flex flex-col overflow-hidden font-sans selection:bg-blue-500/30">
+<body class="flex h-screen w-screen">
 
-    <!-- 頂部標題與控制列 -->
-    <div class="flex-none p-4 bg-gray-900 border-b border-gray-800 flex items-center justify-between z-10 shadow-md">
-        <div class="flex items-center gap-2">
-            <i data-lucide="activity" class="text-blue-500"></i>
-            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400">
-                傅立葉轉換動畫產生器
-            </h1>
+    <!-- 左側控制面板 -->
+    <div class="w-1/3 min-w-[320px] max-w-[400px] bg-slate-900 border-r border-slate-700 flex flex-col z-10 shadow-xl">
+        <div class="p-5 border-b border-slate-700 bg-slate-800">
+            <h1 class="text-2xl font-bold text-sky-400 mb-1"><i class="fa-solid fa-wave-square mr-2"></i>傅立葉動畫</h1>
+            <p class="text-xs text-slate-400">輸入方程式，觀察頻率分解與重組</p>
         </div>
-        <div class="flex gap-4 items-center">
-            <div class="text-sm text-gray-400 flex items-center gap-2" id="status-display">
-                圓圈數量: <span id="harmonics-val" class="text-white font-mono">50</span>
+
+        <!-- 方程式列表 -->
+        <div class="flex-1 overflow-y-auto p-4 custom-scroll" id="equation-list">
+            <!-- 方程式項目將由 JS 動態生成 -->
+        </div>
+
+        <!-- 底部控制區 -->
+        <div class="p-4 bg-slate-800 border-t border-slate-700 space-y-4">
+            <button onclick="addEquation()" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-sky-300 rounded-md transition border border-dashed border-slate-500 hover:border-sky-400">
+                <i class="fa-solid fa-plus mr-2"></i>新增方程式
+            </button>
+            
+            <div class="space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-300">圓圈數量 (N): <span id="n-display" class="font-mono text-sky-400">5</span></span>
+                </div>
+                <input type="range" id="slider-n" min="1" max="100" value="5" class="w-full">
             </div>
-            <input 
-                type="range" 
-                id="harmonics-slider"
-                min="1" 
-                max="128" 
-                value="50" 
-                class="w-32"
-            >
-            <button 
-                id="play-btn"
-                class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors shadow-lg shadow-blue-900/20 active:scale-95"
-            >
-                <i data-lucide="pause" id="play-icon"></i> <span id="play-text">暫停</span>
-            </button>
-            <button 
-                id="reset-btn"
-                class="p-2 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
-                title="重置動畫"
-            >
-                <i data-lucide="refresh-cw"></i>
-            </button>
+
+            <div class="space-y-2">
+                 <div class="flex justify-between text-sm">
+                    <span class="text-slate-300">動畫速度</span>
+                </div>
+                <input type="range" id="slider-speed" min="0.1" max="5" step="0.1" value="1" class="w-full">
+            </div>
+            
+            <div class="pt-2 text-xs text-slate-500 font-mono">
+                可用變數: t, PI<br>
+                函數: sin, cos, tan, abs, pow, sqrt...<br>
+                範例: sign(sin(t)) (方波)
+            </div>
         </div>
     </div>
 
-    <div class="flex flex-1 overflow-hidden">
-        <!-- 左側：方程式輸入區 -->
-        <div class="w-80 flex-none bg-gray-900 border-r border-gray-800 flex flex-col shadow-xl z-10">
-            <div class="p-4 border-b border-gray-800 bg-gray-900/95 backdrop-blur">
-                <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">方程式輸入</h2>
-                <div class="text-xs text-gray-500 mb-4">
-                    格式: 2*sin(3*t) + cos(t)
-                </div>
-                <div class="flex gap-2 mb-1">
-                    <button id="preset-square" class="flex-1 text-xs px-2 py-1.5 bg-gray-800 hover:bg-gray-700 hover:text-blue-400 rounded border border-gray-700 transition-colors">方波</button>
-                    <button id="preset-sawtooth" class="flex-1 text-xs px-2 py-1.5 bg-gray-800 hover:bg-gray-700 hover:text-blue-400 rounded border border-gray-700 transition-colors">鋸齒波</button>
-                </div>
-            </div>
-
-            <!-- 方程式列表容器 -->
-            <div id="equations-container" class="flex-1 overflow-y-auto p-4 space-y-3">
-                <!-- Javascript 將會在這裡動態插入方程式輸入框 -->
-            </div>
-            
-            <div class="p-4 pt-0">
-                 <button 
-                    id="add-eq-btn"
-                    class="w-full py-2 border-2 border-dashed border-gray-700 text-gray-500 hover:text-blue-400 hover:border-blue-500/50 hover:bg-gray-800/50 rounded flex items-center justify-center gap-2 transition-all"
-                >
-                    <i data-lucide="plus" class="w-4 h-4"></i> 新增方程式
-                </button>
-            </div>
-
-            <!-- 底部：頻譜圖預覽 -->
-            <div class="h-48 border-t border-gray-800 p-4 bg-gray-900/50 flex flex-col">
-                <h2 class="text-xs font-semibold text-gray-400 mb-2 flex justify-between">
-                    <span>Magnitude Spectrum</span>
-                    <span class="text-[10px] opacity-50">Freq Domain</span>
-                </h2>
-                <div id="spectrum-container" class="flex-1 w-full flex items-end gap-[1px] opacity-90">
-                    <!-- Javascript 將會在這裡繪製頻譜條 -->
-                </div>
-            </div>
-        </div>
-
-        <!-- 右側：主動畫區 -->
-        <div class="flex-1 relative bg-gray-950 overflow-hidden">
-            <canvas id="main-canvas" class="w-full h-full block cursor-crosshair"></canvas>
-            
-            <!-- 錯誤訊息浮層 -->
-            <div id="error-toast" class="absolute bottom-4 left-4 bg-red-900/80 text-red-100 px-4 py-2 rounded border border-red-700 hidden backdrop-blur-sm">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="alert-circle" class="w-4 h-4"></i>
-                    <span id="error-msg">Error</span>
-                </div>
-            </div>
+    <!-- 右側畫布 -->
+    <div class="flex-1 relative bg-slate-950 overflow-hidden" id="canvas-wrapper">
+        <canvas id="mainCanvas"></canvas>
+        
+        <!-- 浮動提示 -->
+        <div class="absolute top-4 right-4 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full text-xs text-white border border-white/10 pointer-events-none">
+            <i class="fa-solid fa-circle-nodes mr-2 text-sky-400"></i>白色線條 = 傅立葉級數近似值
         </div>
     </div>
 
     <script>
-        // ==========================================
-        // 1. 安全數學解析器 (Safe Math Parser)
-        // ==========================================
-        
-        const parseExpression = (expr) => {
-            const tokens = [];
-            // Regex to match numbers, variables/functions, operators
-            const regex = /([0-9]+\.?[0-9]*)|(sin|cos|tan|abs|sqrt|exp|PI|t)|(\+|-|\*|\/|\^|\(|\))|(\S)/g;
-            let match;
-            while ((match = regex.exec(expr)) !== null) {
-                if (match[1]) tokens.push({ type: 'NUM', val: parseFloat(match[1]) });
-                else if (match[2]) tokens.push({ type: 'VAR', val: match[2] });
-                else if (match[3]) tokens.push({ type: 'OP', val: match[3] });
+        // --- 數學核心工具 ---
+
+        // 複數類別
+        class Complex {
+            constructor(a, b) {
+                this.re = a;
+                this.im = b;
             }
+            add(c) { return new Complex(this.re + c.re, this.im + c.im); }
+            mult(c) { return new Complex(this.re * c.re - this.im * c.im, this.re * c.im + this.im * c.re); }
+        }
 
-            // Shunting-yard algorithm
-            const outputQueue = [];
-            const opStack = [];
-            const precedence = { '+': 1, '-': 1, '*': 2, '/': 2, '^': 3, 'u-': 4 };
-            const assoc = { '+': 'L', '-': 'L', '*': 'L', '/': 'L', '^': 'R' };
-            let lastType = 'OP'; 
-
-            for (let i = 0; i < tokens.length; i++) {
-                const token = tokens[i];
-                if (token.type === 'NUM') {
-                    outputQueue.push(token);
-                    lastType = 'NUM';
-                } else if (token.type === 'VAR') {
-                    if (['sin', 'cos', 'tan', 'sqrt', 'abs', 'exp'].includes(token.val)) {
-                        opStack.push(token);
-                    } else {
-                        outputQueue.push(token);
-                    }
-                    lastType = 'NUM';
-                } else if (token.type === 'OP') {
-                    let op = token.val;
-                    if (op === '-' && (lastType === 'OP' || lastType === 'LPAREN')) {
-                        op = 'u-';
-                    }
-                    if (op === '(') {
-                        opStack.push(token);
-                        lastType = 'LPAREN';
-                    } else if (op === ')') {
-                        while (opStack.length > 0 && opStack[opStack.length - 1].val !== '(') {
-                            outputQueue.push(opStack.pop());
-                        }
-                        opStack.pop();
-                        if (opStack.length > 0 && opStack[opStack.length - 1].type === 'VAR') {
-                            outputQueue.push(opStack.pop());
-                        }
-                        lastType = 'RPAREN';
-                    } else {
-                        while (opStack.length > 0) {
-                            const top = opStack[opStack.length - 1];
-                            if (top.val === '(') break;
-                            if ((assoc[op] === 'L' && precedence[op] <= precedence[top.val]) ||
-                                (assoc[op] === 'R' && precedence[op] < precedence[top.val])) {
-                                outputQueue.push(opStack.pop());
-                            } else {
-                                break;
-                            }
-                        }
-                        opStack.push({ type: 'OP', val: op });
-                        lastType = 'OP';
-                    }
-                }
-            }
-            while (opStack.length > 0) outputQueue.push(opStack.pop());
-            return outputQueue;
-        };
-
-        const evaluateRPN = (rpn, t) => {
-            const stack = [];
-            for (let token of rpn) {
-                if (token.type === 'NUM') stack.push(token.val);
-                else if (token.type === 'VAR') {
-                    if (token.val === 't') stack.push(t);
-                    else if (token.val === 'PI') stack.push(Math.PI);
-                    else if (['sin', 'cos', 'tan', 'sqrt', 'abs', 'exp'].includes(token.val)) {
-                        const arg = stack.pop();
-                        stack.push(Math[token.val](arg));
-                    }
-                } else if (token.type === 'OP') {
-                    if (token.val === 'u-') {
-                        stack.push(-stack.pop());
-                    } else {
-                        const b = stack.pop();
-                        const a = stack.pop();
-                        if (token.val === '+') stack.push(a + b);
-                        else if (token.val === '-') stack.push(a - b);
-                        else if (token.val === '*') stack.push(a * b);
-                        else if (token.val === '/') stack.push(a / b);
-                        else if (token.val === '^') stack.push(Math.pow(a, b));
-                    }
-                }
-            }
-            return stack[0] || 0;
-        };
-
-        // ==========================================
-        // 2. 應用程式狀態 (State)
-        // ==========================================
-        
-        const state = {
-            equations: [
-                { id: 1, val: '4 * sin(t)' },
-                { id: 2, val: '2 * sin(3 * t)' },
-                { id: 3, val: '1.5 * sin(5 * t)' }
-            ],
-            isPlaying: true,
-            numHarmonics: 50,
-            time: 0,
-            trail: [],
-            compiledEquations: [], // 預先編譯的 RPN
-            fourierData: [],       // 計算出的頻率數據
-            N: 256                 // 取樣點
-        };
-
-        // ==========================================
-        // 3. 核心運算邏輯 (Logic)
-        // ==========================================
-
-        const compileEquations = () => {
-            try {
-                state.compiledEquations = state.equations
-                    .filter(eq => eq.val.trim() !== '')
-                    .map(eq => ({
-                        id: eq.id,
-                        rpn: parseExpression(eq.val)
-                    }));
-                document.getElementById('error-toast').classList.add('hidden');
-                calculateFourier(); // 重新計算波形
-            } catch (e) {
-                showError("方程式語法錯誤");
-            }
-        };
-
-        const calculateFourier = () => {
-            // 1. 產生時域訊號 (Time Domain Signal)
-            const signal = [];
-            for (let i = 0; i < state.N; i++) {
-                const t = (2 * Math.PI * i) / state.N;
-                let sum = 0;
-                state.compiledEquations.forEach(eq => {
-                    try {
-                        sum += evaluateRPN(eq.rpn, t);
-                    } catch (e) { sum += 0; }
-                });
-                signal.push(sum);
-            }
-
-            // 2. 離散傅立葉轉換 (DFT)
+        // 離散傅立葉變換 (DFT)
+        // x: 輸入的訊號樣本陣列 (複數或實數)
+        function dft(x) {
             const X = [];
-            const N = signal.length;
+            const N = x.length;
             for (let k = 0; k < N; k++) {
-                let re = 0, im = 0;
+                let sum = new Complex(0, 0);
                 for (let n = 0; n < N; n++) {
                     const phi = (2 * Math.PI * k * n) / N;
-                    re += signal[n] * Math.cos(phi);
-                    im -= signal[n] * Math.sin(phi);
+                    const c = new Complex(Math.cos(phi), -Math.sin(phi));
+                    sum = sum.add(x[n].mult(c));
                 }
-                re /= N; im /= N;
-                const amp = Math.sqrt(re * re + im * im);
-                const phase = Math.atan2(im, re);
-                X.push({ freq: k, amp, phase });
+                sum.re = sum.re / N;
+                sum.im = sum.im / N;
+
+                let freq = k;
+                let amp = Math.sqrt(sum.re * sum.re + sum.im * sum.im);
+                let phase = Math.atan2(sum.im, sum.re);
+
+                X[k] = { re: sum.re, im: sum.im, freq, amp, phase };
+            }
+            return X;
+        }
+
+        // --- 應用程式邏輯 ---
+
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const listContainer = document.getElementById('equation-list');
+        const sliderN = document.getElementById('slider-n');
+        const nDisplay = document.getElementById('n-display');
+        const sliderSpeed = document.getElementById('slider-speed');
+
+        let time = 0;
+        let path = []; // 繪製波形的軌跡
+        let fourierData = []; // 計算出的傅立葉係數
+        let equations = [
+            { id: 1, text: "4 * sin(t) / PI + 4 * sin(3*t) / (3*PI)", active: true, color: '#38bdf8' }, // 方波的前兩項
+            { id: 2, text: "t % (2*PI) < PI ? 1 : -1", active: false, color: '#a855f7' } // 真正的方波
+        ];
+        let currentEquationId = 1;
+        
+        // 畫布尺寸設定
+        function resize() {
+            const wrapper = document.getElementById('canvas-wrapper');
+            canvas.width = wrapper.clientWidth;
+            canvas.height = wrapper.clientHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // 數學解析器 (將字串轉換為可執行函數)
+        function evaluateMath(expression, tVal) {
+            // 安全性處理：限制可用變數與函數
+            try {
+                // 將 t 替換為實際數值，將常見數學函數映射到 Math 物件
+                // 為了效能，我們構造一個 Function
+                // 把 Math 的屬性解構出來供直接使用
+                const scope = Object.getOwnPropertyNames(Math).reduce((acc, key) => {
+                    acc[key] = Math[key];
+                    return acc;
+                }, {});
+                scope.t = tVal;
+                
+                // 處理特殊語法別名
+                let safeExpr = expression
+                    .replace(/\bsign\b/g, 'Math.sign')
+                    .replace(/\bsin\b/g, 'Math.sin')
+                    .replace(/\bcos\b/g, 'Math.cos')
+                    .replace(/\btan\b/g, 'Math.tan')
+                    .replace(/\babs\b/g, 'Math.abs')
+                    .replace(/\bPI\b/g, 'Math.PI')
+                    .replace(/\bsqrt\b/g, 'Math.sqrt')
+                    .replace(/\bpow\b/g, 'Math.pow');
+
+                // 建立執行函數
+                const func = new Function(...Object.keys(scope), `return ${safeExpr};`);
+                return func(...Object.values(scope));
+            } catch (e) {
+                return 0; // 解析失敗回傳 0
+            }
+        }
+
+        // 計算目前選中方程式的 DFT
+        function computeCurrentDFT() {
+            const eq = equations.find(e => e.id === currentEquationId);
+            if (!eq) return;
+
+            const N_SAMPLES = 200; // 採樣解析度
+            let signal = [];
+            
+            // 1. 採樣：對一個週期 (0 到 2PI) 進行採樣
+            for (let i = 0; i < N_SAMPLES; i++) {
+                let t = (2 * Math.PI * i) / N_SAMPLES;
+                let val = evaluateMath(eq.text, t);
+                
+                // 限制數值避免爆炸
+                if (isNaN(val) || !isFinite(val)) val = 0;
+                if (val > 5) val = 5; 
+                if (val < -5) val = -5;
+
+                // 轉換為複數格式 (實部為值，虛部為0)
+                // 放大一點以便在畫布上看清 (scale factor)
+                signal.push(new Complex(val * 80, 0)); 
             }
 
-            // 3. 排序並儲存
-            state.fourierData = X.sort((a, b) => b.amp - a.amp);
+            // 2. 計算 DFT
+            const rawDft = dft(signal);
+
+            // 3. 排序：將振幅大的圓圈排在前面 (視覺效果較好)
+            // 略過第0項(直流分量)通常會讓動畫置中更容易，但這裡我們保留並稍後處理位置
+            fourierData = rawDft.sort((a, b) => b.amp - a.amp);
             
-            // 4. 更新頻譜圖 UI
-            renderSpectrum();
-        };
+            // 重置路徑
+            path = [];
+            time = 0;
+        }
 
-        const showError = (msg) => {
-            const el = document.getElementById('error-toast');
-            const msgEl = document.getElementById('error-msg');
-            msgEl.textContent = msg;
-            el.classList.remove('hidden');
-        };
+        // --- 繪圖循環 ---
+        function draw() {
+            // 背景清空
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // ==========================================
-        // 4. UI 渲染 (Render UI)
-        // ==========================================
-
-        const equationsContainer = document.getElementById('equations-container');
-        const spectrumContainer = document.getElementById('spectrum-container');
-
-        const renderEquations = () => {
-            equationsContainer.innerHTML = '';
-            state.equations.forEach((eq, index) => {
-                const div = document.createElement('div');
-                div.className = 'flex items-center gap-2 group animate-[fadeIn_0.3s_ease-out]';
-                div.innerHTML = `
-                    <span class="text-gray-500 font-mono text-sm w-4 select-none">f${index + 1}</span>
-                    <input 
-                        type="text" 
-                        value="${eq.val}" 
-                        data-id="${eq.id}"
-                        class="eq-input flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-blue-100 font-mono transition-colors"
-                        placeholder="例如: sin(t)"
-                    >
-                    <button class="delete-btn text-gray-600 hover:text-red-400 p-1 rounded transition-colors" data-id="${eq.id}">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                `;
-                equationsContainer.appendChild(div);
-            });
-            lucide.createIcons();
-            
-            // 綁定事件
-            document.querySelectorAll('.eq-input').forEach(input => {
-                input.addEventListener('input', (e) => {
-                    const id = parseInt(e.target.dataset.id);
-                    const newEqs = state.equations.map(q => q.id === id ? {...q, val: e.target.value} : q);
-                    state.equations = newEqs;
-                    compileEquations();
-                });
-            });
-
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    // 找到最近的 button 元素 (防止點到 icon)
-                    const target = e.target.closest('button');
-                    const id = parseInt(target.dataset.id);
-                    state.equations = state.equations.filter(q => q.id !== id);
-                    renderEquations();
-                    compileEquations();
-                });
-            });
-        };
-
-        const renderSpectrum = () => {
-            spectrumContainer.innerHTML = '';
-            // 只顯示前 30 個頻率分量
-            state.fourierData.slice(0, 30).forEach(d => {
-                const barWrapper = document.createElement('div');
-                barWrapper.className = 'flex-1 flex flex-col justify-end group relative h-full';
-                
-                const heightPercent = Math.min(d.amp * 30, 100); // 簡單的縮放
-                
-                barWrapper.innerHTML = `
-                    <div style="height: ${heightPercent}%" class="w-full bg-teal-500/50 group-hover:bg-teal-400 transition-all rounded-t-[1px]"></div>
-                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-black text-[10px] p-1 rounded whitespace-nowrap z-20 border border-gray-700 shadow-xl">
-                        F:${d.freq}, A:${d.amp.toFixed(2)}
-                    </div>
-                `;
-                spectrumContainer.appendChild(barWrapper);
-            });
-        };
-
-        // ==========================================
-        // 5. 畫布動畫 (Canvas Animation)
-        // ==========================================
-
-        const canvas = document.getElementById('main-canvas');
-        const ctx = canvas.getContext('2d');
-        let animationId;
-
-        const resizeCanvas = () => {
-            const parent = canvas.parentElement;
-            canvas.width = parent.clientWidth;
-            canvas.height = parent.clientHeight;
-        };
-        window.addEventListener('resize', resizeCanvas);
-
-        const draw = () => {
-            if (!state.isPlaying) {
-                animationId = requestAnimationFrame(draw);
+            const activeEq = equations.find(e => e.id === currentEquationId);
+            if (!activeEq) {
+                requestAnimationFrame(draw);
                 return;
             }
 
-            // 更新時間
-            const dt = (2 * Math.PI) / state.N;
-            state.time += dt;
+            // 圓圈數量的限制 (由 Slider 控制)
+            // 注意：因為 DFT 對稱性，實際有用的頻率只有一半左右，但我們全部畫出來比較保險
+            let maxN = parseInt(sliderN.value);
+            // DFT 回傳 N 個結果，我們只需要前 N 個最大的分量來近似
+            let currentData = fourierData.slice(0, Math.min(maxN, fourierData.length));
 
-            // 清空
-            const width = canvas.width;
-            const height = canvas.height;
-            const centerX = width * 0.3; 
-            const centerY = height / 2;
-            const waveStartX = width * 0.55;
+            // 設定原點 (畫布左側中心)
+            let vx = canvas.width * 0.25; 
+            let vy = canvas.height / 2;
 
-            ctx.fillStyle = '#111827'; // bg-gray-950
-            ctx.fillRect(0, 0, width, height);
+            // 1. 繪製 Epicycles (旋轉圓圈)
+            for (let i = 0; i < currentData.length; i++) {
+                let prevx = vx;
+                let prevy = vy;
 
-            // 繪製軸線
-            ctx.strokeStyle = '#374151'; // gray-700
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(centerX, 0); ctx.lineTo(centerX, height);
-            ctx.moveTo(waveStartX, 0); ctx.lineTo(waveStartX, height);
-            ctx.stroke();
+                let freq = currentData[i].freq;
+                let radius = currentData[i].amp;
+                let phase = currentData[i].phase;
 
-            // 標籤文字
-            ctx.fillStyle = '#9CA3AF'; // gray-400
-            ctx.font = '14px sans-serif';
-            ctx.fillText("頻率圓圈疊加 (Phasors)", 20, 30);
-            ctx.fillText("輸出波形 (Time Domain)", waveStartX + 20, 30);
-            
-            ctx.textAlign = "right";
-            ctx.font = '12px monospace';
-            ctx.fillText(`Time: ${state.time.toFixed(2)}`, width - 20, height - 20);
-            ctx.textAlign = "left";
+                // 計算向量尖端位置: 角度 = freq * time + phase
+                // time 是一個週期 0 -> 2PI
+                let angle = freq * time + phase;
 
-            // 繪製圓圈 (Epicycles)
-            let x = centerX;
-            let y = centerY;
-            
-            const activeHarmonics = state.fourierData.slice(0, state.numHarmonics);
+                vx += radius * Math.cos(angle);
+                vy += radius * Math.sin(angle);
 
-            activeHarmonics.forEach(f => {
-                const prevX = x;
-                const prevY = y;
-                const radius = f.amp * 80; // 放大振幅係數
-                const angle = f.freq * state.time + f.phase;
-
-                x += radius * Math.cos(angle);
-                y += radius * Math.sin(angle);
-
-                // 只有當半徑夠大才畫圓圈
-                if (radius > 1) {
-                    ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
-                    ctx.beginPath();
-                    ctx.arc(prevX, prevY, radius, 0, 2 * Math.PI);
-                    ctx.stroke();
-                }
-
-                // 向量線
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                // 畫圓
                 ctx.beginPath();
-                ctx.moveTo(prevX, prevY);
-                ctx.lineTo(x, y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.arc(prevx, prevy, radius, 0, 2 * Math.PI);
                 ctx.stroke();
-            });
 
-            // 連接到波形
-            ctx.strokeStyle = 'rgba(255, 255, 0, 0.5)';
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(waveStartX, y);
-            ctx.stroke();
-            ctx.setLineDash([]);
+                // 畫半徑向量
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.moveTo(prevx, prevy);
+                ctx.lineTo(vx, vy);
+                ctx.stroke();
+                
+                // 畫小圓點連接處
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(vx, vy, 2, 0, 2 * Math.PI);
+                ctx.fill();
+            }
 
-            // 畫筆尖端的亮點
-            ctx.fillStyle = '#FBBF24'; // amber-400
-            ctx.beginPath();
-            ctx.arc(x, y, 4, 0, 2 * Math.PI);
-            ctx.fill();
-
-            // 更新軌跡 (Trail)
-            state.trail.unshift({ y: y });
-            if (state.trail.length > 800) state.trail.pop();
-
-            // 繪製波形
-            ctx.strokeStyle = '#60A5FA'; // blue-400
-            ctx.lineWidth = 2;
-            ctx.beginPath();
+            // 2. 繪製連接線到波形
+            // 波形將在右側繪製，隨著時間向右移動
+            // 這裡我們做一個 "示波器" 風格，波形向右平移
             
-            let hasStarted = false;
-            for (let i = 0; i < state.trail.length; i++) {
-                const px = waveStartX + i * 2; // 波形拉伸
-                if (px < width) {
-                    if (!hasStarted) {
-                        ctx.moveTo(px, state.trail[i].y);
-                        hasStarted = true;
-                    } else {
-                        ctx.lineTo(px, state.trail[i].y);
-                    }
+            // 將目前的 y 值存入路徑
+            // 我們其實是在畫 y(t)，x軸是時間
+            // 為了視覺效果，我們將生成的點 (vx, vy) 的 y 座標拿來畫波形
+            
+            // 這裡稍微 trick 一下：
+            // 傅立葉動畫通常有兩種：
+            // A. 畫圖形 (x,y) -> 需要兩個 DFT
+            // B. 畫波形 (t, y) -> 圓圈在左，波形向右拉出
+            // 這裡是 B 模式
+            
+            // 將最新的點加入路徑頭部
+            path.unshift(vy);
+
+            // 繪製連接線 (從最後一個圓圈到波形起點)
+            const waveStartX = canvas.width * 0.55;
+            ctx.beginPath();
+            ctx.moveTo(vx, vy);
+            ctx.lineTo(waveStartX, path[0]);
+            ctx.strokeStyle = activeEq.color;
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.setLineDash([]); // 重置虛線
+
+            // 3. 繪製波形
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = activeEq.color;
+            
+            // 我們把 path 陣列畫出來，x 座標隨 index 增加
+            for (let i = 0; i < path.length; i++) {
+                // x 軸縮放，讓波形拉長一點
+                let px = waveStartX + i * 1.5; 
+                let py = path[i];
+                
+                // 如果超出畫布就停止繪製
+                if (px > canvas.width) {
+                    path.splice(i); // 移除過舊的數據以節省記憶體
+                    break; 
                 }
+                
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
             }
             ctx.stroke();
 
-            animationId = requestAnimationFrame(draw);
-        };
+            // 4. 繪製原始函數的完美曲線 (作為背景參考)
+            // 只有當使用者輸入的是單純的時間函數時才有意義
+            // 這裡可以選擇性實作，目前省略以保持畫面清晰
 
-        // ==========================================
-        // 6. 初始化與事件監聽 (Init & Events)
-        // ==========================================
+            // 更新時間
+            const dt = (2 * Math.PI) / fourierData.length; 
+            time += dt * parseFloat(sliderSpeed.value);
 
-        document.addEventListener('DOMContentLoaded', () => {
-            // 初始化圖標
-            lucide.createIcons();
-            
-            // 初始化 Canvas 尺寸
-            resizeCanvas();
+            // 如果時間超過 2PI，重置 (雖然數學上週期函數會繼續，但為了數值穩定)
+            if (time > 2 * Math.PI) {
+                time = 0;
+            }
 
-            // UI 元素
-            const playBtn = document.getElementById('play-btn');
-            const playIcon = document.getElementById('play-icon');
-            const playText = document.getElementById('play-text');
-            const resetBtn = document.getElementById('reset-btn');
-            const addBtn = document.getElementById('add-eq-btn');
-            const harmonicsSlider = document.getElementById('harmonics-slider');
-            const harmonicsVal = document.getElementById('harmonics-val');
-            const presetSquare = document.getElementById('preset-square');
-            const presetSawtooth = document.getElementById('preset-sawtooth');
-
-            // 綁定事件
-            playBtn.addEventListener('click', () => {
-                state.isPlaying = !state.isPlaying;
-                if (state.isPlaying) {
-                    playText.textContent = "暫停";
-                    playIcon.setAttribute('data-lucide', 'pause');
-                    // 重新創建圖標因為 DOM 改變了
-                    lucide.createIcons();
-                } else {
-                    playText.textContent = "播放";
-                    playIcon.setAttribute('data-lucide', 'play');
-                    lucide.createIcons();
-                }
-            });
-
-            resetBtn.addEventListener('click', () => {
-                state.trail = [];
-                state.time = 0;
-            });
-
-            addBtn.addEventListener('click', () => {
-                state.equations.push({ id: Date.now(), val: '' });
-                renderEquations();
-            });
-
-            harmonicsSlider.addEventListener('input', (e) => {
-                state.numHarmonics = parseInt(e.target.value);
-                harmonicsVal.textContent = state.numHarmonics;
-            });
-
-            presetSquare.addEventListener('click', () => {
-                state.equations = [
-                    { id: 1, val: '4 * sin(t)' },
-                    { id: 2, val: '1.33 * sin(3*t)' },
-                    { id: 3, val: '0.8 * sin(5*t)' },
-                    { id: 4, val: '0.57 * sin(7*t)' },
-                ];
-                renderEquations();
-                compileEquations();
-                state.trail = [];
-                state.time = 0;
-            });
-
-            presetSawtooth.addEventListener('click', () => {
-                state.equations = [
-                    { id: 1, val: '2 * sin(t)' },
-                    { id: 2, val: '-1 * sin(2*t)' },
-                    { id: 3, val: '0.66 * sin(3*t)' },
-                    { id: 4, val: '-0.5 * sin(4*t)' },
-                ];
-                renderEquations();
-                compileEquations();
-                state.trail = [];
-                state.time = 0;
-            });
-
-            // 啟動
-            renderEquations();
-            compileEquations();
             requestAnimationFrame(draw);
+        }
+
+        // --- UI 管理 ---
+
+        function renderList() {
+            listContainer.innerHTML = '';
+            equations.forEach(eq => {
+                const el = document.createElement('div');
+                el.className = `p-3 mb-3 rounded-lg border cursor-pointer transition flex flex-col gap-2 ${
+                    eq.active 
+                    ? 'bg-slate-800 border-sky-500 shadow-[0_0_10px_rgba(56,189,248,0.3)]' 
+                    : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                }`;
+                el.onclick = (e) => {
+                    // 避免點擊輸入框或按鈕時觸發切換
+                    if(e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'I') return;
+                    setActive(eq.id);
+                };
+
+                // 標頭區：選取狀態圓點 與 刪除按鈕
+                const header = document.createElement('div');
+                header.className = "flex justify-between items-center";
+                header.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full" style="background-color: ${eq.color}; box-shadow: 0 0 5px ${eq.color}"></div>
+                        <span class="text-sm font-bold text-slate-300">方程式 ${eq.id}</span>
+                        ${eq.active ? '<span class="text-[10px] bg-sky-900 text-sky-300 px-1.5 py-0.5 rounded">顯示中</span>' : ''}
+                    </div>
+                    ${equations.length > 1 ? `<button onclick="removeEquation(${eq.id})" class="text-slate-500 hover:text-red-400 transition"><i class="fa-solid fa-trash"></i></button>` : ''}
+                `;
+
+                // 輸入框
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = eq.text;
+                input.className = "equation-input w-full bg-slate-900 text-slate-200 text-sm p-2 rounded border border-slate-700 font-mono";
+                input.onchange = (e) => updateEquationText(eq.id, e.target.value);
+                input.onkeydown = (e) => { e.stopPropagation(); }; // 防止干擾快捷鍵
+
+                el.appendChild(header);
+                el.appendChild(input);
+                listContainer.appendChild(el);
+            });
+        }
+
+        function setActive(id) {
+            if (currentEquationId === id) return;
+            equations.forEach(e => e.active = (e.id === id));
+            currentEquationId = id;
+            renderList();
+            computeCurrentDFT(); // 重新計算
+        }
+
+        function addEquation() {
+            const newId = equations.length > 0 ? Math.max(...equations.map(e => e.id)) + 1 : 1;
+            // 隨機顏色
+            const colors = ['#38bdf8', '#a855f7', '#f472b6', '#34d399', '#fbbf24', '#f87171'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            
+            equations.push({
+                id: newId,
+                text: "sin(t) + 0.5 * sin(3*t)", // 預設值
+                active: false,
+                color: randomColor
+            });
+            // 自動切換到新的
+            setActive(newId);
+        }
+
+        function removeEquation(id) {
+            equations = equations.filter(e => e.id !== id);
+            if (currentEquationId === id && equations.length > 0) {
+                setActive(equations[0].id);
+            } else if (equations.length === 0) {
+                // 至少保留一個
+                addEquation();
+            } else {
+                renderList();
+            }
+        }
+
+        function updateEquationText(id, newText) {
+            const eq = equations.find(e => e.id === id);
+            if (eq) {
+                eq.text = newText;
+                if (eq.active) computeCurrentDFT();
+            }
+        }
+
+        // --- 事件監聽 ---
+        
+        sliderN.addEventListener('input', (e) => {
+            nDisplay.innerText = e.target.value;
+            // 不需要重新計算 DFT，只需要在 draw 裡面 slice 資料即可
         });
+
+        // 初始化
+        renderList();
+        computeCurrentDFT();
+        draw();
 
     </script>
 </body>
